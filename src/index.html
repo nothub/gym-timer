@@ -955,6 +955,16 @@ if ("serviceWorker" in navigator && window.isSecureContext) {
   });
 }
 
+// The manifest has no window-size field, so the first launch of the installed
+// app sizes itself. Only once: Chromium remembers the size the user leaves it
+// at, and resizing on every launch would undo that. resizeTo takes the outer
+// size, so the title bar is added on top of the 500x560 the layout wants.
+// Browser tabs and phones ignore resizeTo, which is fine.
+if (matchMedia("(display-mode: standalone)").matches && !loadPrefs().windowSized) {
+  resizeTo(outerWidth - innerWidth + 500, outerHeight - innerHeight + 560);
+  savePrefs({ windowSized: true });
+}
+
 // Offline is not what this gates -- the service worker above gives that to
 // every engine. This is installing as a standalone app, and only Chromium lets
 // a page ask for it: beforeinstallprompt is Chromium-only, and fires only for

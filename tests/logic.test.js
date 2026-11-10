@@ -59,6 +59,7 @@ async function run({
     stopAt = null,
     build = "dev",
     audioThrows = false,
+    standalone = false,
 } = {}) {
     let now = 0;
     const beeps = [];
@@ -67,6 +68,7 @@ async function run({
     const timeouts = [];
     const flashes = [];
     const wakeLog = [];
+    const resizes = [];
 
     const makeEl = (id) => ({
         id,
@@ -344,6 +346,13 @@ async function run({
             frames.length = 0;
         },
         setTimeout: (fn, ms) => timeouts.push({ fn, at: now + ms }),
+        matchMedia: (q) => ({ matches: standalone && q === "(display-mode: standalone)" }),
+        // An 800x600 window whose title bar and frame take 10x40 of it.
+        outerWidth: 800,
+        outerHeight: 600,
+        innerWidth: 790,
+        innerHeight: 560,
+        resizeTo: (w, h) => resizes.push([w, h]),
     };
 
     // Not user input: `code` is the <script> block of a first-party file in this
@@ -460,7 +469,7 @@ async function run({
     const tap = () => els.seconds.fire("click");
 
     return {
-        els, initial, seeded, beeps, buzzes, flashes, store, wakeLog, doneAt,
+        els, initial, seeded, beeps, buzzes, flashes, store, wakeLog, resizes, doneAt,
         setVisibility, browserDropsLock, bodyHasClass, tap, lapRows,
     };
 }
@@ -1043,6 +1052,24 @@ Deno.test("each checkbox is restored from storage independently", async () => {
         strictEqual(els["cue-sound"].checked, want.sound, `${mode} sound`);
         strictEqual(els["cue-buzz"].checked, want.buzz, `${mode} buzz`);
     }
+});
+
+/* ---------- Installed app window ---------- */
+
+Deno.test("the installed app's first launch sizes its viewport to 500x560", async () => {
+    const { resizes, store } = await run({ count: 1, standalone: true });
+    deepStrictEqual(resizes, [[510, 600]]);
+    strictEqual(JSON.parse(store.get("emom")).windowSized, true);
+});
+
+Deno.test("later launches keep the size the user left the window at", async () => {
+    const { resizes } = await run({ count: 1, standalone: true, stored: { windowSized: true } });
+    deepStrictEqual(resizes, []);
+});
+
+Deno.test("a browser tab is never resized", async () => {
+    const { resizes } = await run({ count: 1 });
+    deepStrictEqual(resizes, []);
 });
 
 /* ---------- Build id in the footer ---------- */
